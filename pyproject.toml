@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
-    { name = "Your Name", email = "your.email@example.com" }
+    { name = "Yuze Xie", email = "xyzbrianx@gmail.com" }
 ]
 keywords = ["music", "charts", "billboard", "spotify", "api"]
 classifiers = [
@@ -37,10 +37,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/mchart"
-Documentation = "https://github.com/yourusername/mchart#readme"
-Repository = "https://github.com/yourusername/mchart"
-Issues = "https://github.com/yourusername/mchart/issues"
+Homepage = "https://github.com/mastaBriX/mchart"
+Documentation = "https://github.com/mastaBriX/mchart#readme"
+Repository = "https://github.com/mastaBriX/mchart"
+Issues = "https://github.com/mastaBriX/mchart/issues"
 
 [build-system]
 requires = ["hatchling"]
