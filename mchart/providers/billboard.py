@@ -14,7 +14,7 @@ from urllib3.util.retry import Retry
 from bs4 import BeautifulSoup
 
 from .base import BaseProvider, ProviderCapability
-from ..models import Chart, ChartEntry, ChartMetadata, Song
+from ..models import Chart, ChartEntry, ChartMetadata, Song, Album
 from ..config import BillboardConfig, DEFAULT_BILLBOARD_CONFIG
 
 
@@ -32,6 +32,11 @@ class BillboardProvider(BaseProvider):
         "streaming-songs": "/charts/streaming-songs",
         "radio-songs": "/charts/radio-songs",
         "digital-song-sales": "/charts/digital-song-sales",
+    }
+    
+    # Album charts (charts that track albums instead of singles)
+    ALBUM_CHARTS = {
+        "billboard-200",
     }
     
     def __init__(self, config: Optional[BillboardConfig] = None):
@@ -143,6 +148,24 @@ class BillboardProvider(BaseProvider):
         normalized = self._normalize_chart_name(chart_name)
         path = self.CHART_URLS.get(normalized, self.CHART_URLS["hot-100"])
         return f"{self.BASE_URL}{path}"
+    
+    def _get_chart_type(self, chart_name: str) -> str:
+        """
+        Determine if a chart is for singles or albums
+        
+        Args:
+            chart_name: Normalized chart name
+            
+        Returns:
+            "album" for album charts, "single" for single charts
+        """
+        normalized = self._normalize_chart_name(chart_name)
+        
+        if normalized in self.ALBUM_CHARTS:
+            return "album"
+        
+        # Default to single charts
+        return "single"
     
     def _parse_date(self, soup: BeautifulSoup) -> date:
         """Parse publication date from page"""
@@ -261,8 +284,100 @@ class BillboardProvider(BaseProvider):
         entries.sort(key=lambda x: x.rank)
         return entries
     
-    def _extract_artist(self, row, song_title: str) -> str:
-        """Extract artist name from row"""
+    def _parse_album_entries(self, soup: BeautifulSoup) -> list[ChartEntry]:
+        """Parse album chart entries from HTML (for Billboard 200)"""
+        entries = []
+        include_images = self.config.get("include_images", True)
+        max_entries = self.config.get("max_chart_entries")
+        
+        # Find all chart rows (same structure as single charts)
+        chart_rows = soup.find_all("ul", class_=re.compile(r"o-chart-results-list-row"))
+        
+        for row in chart_rows:
+            try:
+                # Extract rank
+                rank = 0
+                rank_elem = row.find("span", class_=re.compile(r"c-label"))
+                if rank_elem:
+                    rank_text = rank_elem.get_text(strip=True)
+                    if rank_text.isdigit():
+                        rank = int(rank_text)
+                
+                if rank == 0:
+                    continue
+                
+                # Extract album title (same selector as song title)
+                title_elem = row.find("h3", class_=re.compile(r"c-title"))
+                album_title = title_elem.get_text(strip=True) if title_elem else ""
+                
+                if not album_title:
+                    continue
+                
+                # Extract artist (for album charts, allow same name as title for self-titled albums)
+                artist = self._extract_artist(row, album_title, is_album_chart=True)
+                if not artist:
+                    continue
+                
+                # Extract image URL
+                image_url = ""
+                if include_images:
+                    image_url = self._extract_image(row)
+                
+                # Parse multiple artists
+                if "&" in artist:
+                    artists = [a.strip() for a in artist.split("&")]
+                elif "," in artist:
+                    artists = [a.strip() for a in artist.split(",")]
+                else:
+                    artists = [artist]
+                
+                # Extract additional data
+                weeks_on_chart = self._extract_weeks(row)
+                last_week = self._extract_last_week(row)
+                peak_position = self._extract_peak(row, rank)
+                
+                # Create entry using Album model
+                album = Album(
+                    title=album_title,
+                    artist=artists[0] if artists else artist,
+                    artists=artists,
+                    image=image_url
+                )
+                
+                entry = ChartEntry(
+                    album=album,
+                    rank=rank,
+                    weeks_on_chart=weeks_on_chart,
+                    last_week=last_week,
+                    peak_position=peak_position
+                )
+                
+                entries.append(entry)
+                
+                # Check if we've reached the limit
+                if max_entries and len(entries) >= max_entries:
+                    break
+                
+            except Exception:
+                # Skip failed entries
+                continue
+        
+        # Sort by rank
+        entries.sort(key=lambda x: x.rank)
+        return entries
+    
+    def _extract_artist(self, row, song_title: str, is_album_chart: bool = False) -> str:
+        """
+        Extract artist name from row
+        
+        Args:
+            row: BeautifulSoup element containing the chart row
+            song_title: Title of the song/album
+            is_album_chart: If True, allow artist name to match title (for self-titled albums)
+        
+        Returns:
+            Artist name string, or empty string if not found
+        """
         artist = ""
         
         # Method 1: Find in links containing /artist/
@@ -270,11 +385,22 @@ class BillboardProvider(BaseProvider):
         for link in links:
             href = link.get("href", "")
             text = link.get_text(strip=True)
-            if "/artist/" in href and text and text != song_title:
-                if not artist:
-                    artist = text
+            # For album charts, allow same name as title (self-titled albums)
+            # For single charts, skip if text matches title (to avoid false positives)
+            if "/artist/" in href and text:
+                if is_album_chart:
+                    # For albums: use artist link even if it matches title (self-titled albums)
+                    if not artist:
+                        artist = text
+                    else:
+                        artist += f" & {text}"
                 else:
-                    artist += f" & {text}"
+                    # For singles: skip if text matches title
+                    if text != song_title:
+                        if not artist:
+                            artist = text
+                        else:
+                            artist += f" & {text}"
         
         # Method 2: Find in span.c-label (excluding rank)
         if not artist:
@@ -397,7 +523,13 @@ class BillboardProvider(BaseProvider):
             
             # Parse data
             published_date = self._parse_date(soup)
-            entries = self._parse_entries(soup)
+            
+            # Determine chart type and use appropriate parser
+            chart_type = self._get_chart_type(chart_name)
+            if chart_type == "album":
+                entries = self._parse_album_entries(soup)
+            else:
+                entries = self._parse_entries(soup)
             
             # Get description from meta tag
             description = ""
@@ -415,12 +547,26 @@ class BillboardProvider(BaseProvider):
                 normalized = self._normalize_chart_name(chart_name)
                 description = desc_map.get(normalized, f"The {chart_name} chart on Billboard")
             
+            # Get proper title
+            chart_titles = {
+                "hot-100": "Billboard Hot 100",
+                "billboard-200": "Billboard 200",
+                "global-200": "Global 200",
+                "artist-100": "Artist 100",
+                "streaming-songs": "Streaming Songs",
+                "radio-songs": "Radio Songs",
+                "digital-song-sales": "Digital Song Sales",
+            }
+            normalized = self._normalize_chart_name(chart_name)
+            chart_title = chart_titles.get(normalized, chart_name)
+            
             # Create chart metadata
             metadata = ChartMetadata(
                 provider=self.name,
-                title=chart_name,
+                title=chart_title,
                 description=description,
-                url=url
+                url=url,
+                type=chart_type
             )
             
             return Chart(
@@ -466,11 +612,13 @@ class BillboardProvider(BaseProvider):
         
         for chart_id, (title, desc) in chart_info.items():
             path = self.CHART_URLS.get(chart_id, "")
+            chart_type = self._get_chart_type(chart_id)
             charts.append(ChartMetadata(
                 provider=self.name,
                 title=title,
                 description=desc,
-                url=f"{self.BASE_URL}{path}"
+                url=f"{self.BASE_URL}{path}",
+                type=chart_type
             ))
         
         return charts

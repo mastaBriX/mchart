@@ -345,20 +345,33 @@ top_5 = chart.get_top(5)
     "provider": str,      # Provider 名称，如 "billboard"
     "title": str,         # 排行榜标题
     "description": str,   # 排行榜描述
-    "url": str           # 排行榜原始 URL
+    "url": str,          # 排行榜原始 URL
+    "type": str          # 排行榜类型："single"（单曲榜）或 "album"（专辑榜）
 }
+```
+
+**type 字段说明：**
+- `"single"`: 单曲榜，排行榜条目包含歌曲信息（使用 `song` 字段）
+- `"album"`: 专辑榜，排行榜条目包含专辑信息（使用 `album` 字段）
+
+**示例：**
+```python
+metadata = chart["metadata"]
+print(f"排行榜: {metadata['title']}")
+print(f"类型: {metadata['type']}")  # "single" 或 "album"
 ```
 
 ---
 
 ### ChartEntry（排行榜条目）
 
-单个排行榜条目。
+单个排行榜条目。根据排行榜类型，条目可能包含歌曲信息（单曲榜）或专辑信息（专辑榜）。
 
 **字段：**
 ```python
 {
-    "song": Song,           # 歌曲信息
+    "song": Song,           # 歌曲信息（单曲榜使用，专辑榜为 None）
+    "album": Album,         # 专辑信息（专辑榜使用，单曲榜为 None）
     "rank": int,            # 当前排名
     "weeks_on_chart": int,  # 在榜周数
     "last_week": int,       # 上周排名（0 表示新上榜）
@@ -366,18 +379,40 @@ top_5 = chart.get_top(5)
 }
 ```
 
-**示例：**
+**重要说明：**
+- 单曲榜（`metadata.type == "single"`）：使用 `song` 字段，`album` 字段为 `None`
+- 专辑榜（`metadata.type == "album"`）：使用 `album` 字段，`song` 字段为 `None`
+- 每个条目必须且仅能包含 `song` 或 `album` 中的一个
+
+**示例（单曲榜）：**
 ```python
+# 获取单曲榜
+chart = client.get_chart("billboard", "hot-100")
 entry = chart["entries"][0]
-print(f"#{entry['rank']} - {entry['song']['title']}")
-print(f"已上榜 {entry['weeks_on_chart']} 周")
+
+if chart["metadata"]["type"] == "single":
+    print(f"#{entry['rank']} - {entry['song']['title']}")
+    print(f"艺术家: {entry['song']['artist']}")
+    print(f"已上榜 {entry['weeks_on_chart']} 周")
+```
+
+**示例（专辑榜）：**
+```python
+# 获取专辑榜
+chart = client.get_chart("billboard", "billboard-200")
+entry = chart["entries"][0]
+
+if chart["metadata"]["type"] == "album":
+    print(f"#{entry['rank']} - {entry['album']['title']}")
+    print(f"艺术家: {entry['album']['artist']}")
+    print(f"已上榜 {entry['weeks_on_chart']} 周")
 ```
 
 ---
 
 ### Song（歌曲信息）
 
-歌曲的详细信息。
+歌曲的详细信息。用于单曲榜（`ChartEntry.song`）。
 
 **字段：**
 ```python
@@ -396,6 +431,30 @@ song = entry["song"]
 print(f"{song['title']} by {song['artist']}")
 if song["artists"]:
     print(f"合作艺术家: {', '.join(song['artists'])}")
+```
+
+---
+
+### Album（专辑信息）
+
+专辑的详细信息。用于专辑榜（`ChartEntry.album`）。
+
+**字段：**
+```python
+{
+    "title": str,        # 专辑标题
+    "artist": str,       # 主要艺术家
+    "artists": list[str],  # 所有艺术家列表
+    "image": str        # 封面图片 URL
+}
+```
+
+**示例：**
+```python
+album = entry["album"]
+print(f"{album['title']} by {album['artist']}")
+if album["artists"]:
+    print(f"合作艺术家: {', '.join(album['artists'])}")
 ```
 
 ---
@@ -424,19 +483,48 @@ if song["artists"]:
 
 #### 示例
 
+**单曲榜示例：**
 ```python
 from mchart import MChart
 
 client = MChart()
 
-# 获取 Billboard Hot 100
+# 获取 Billboard Hot 100（单曲榜）
 hot100 = client.get_chart("billboard", "hot-100")
+
+# 检查排行榜类型
+print(f"排行榜类型: {hot100['metadata']['type']}")  # "single"
+
+# 访问歌曲信息
+for entry in hot100["entries"][:5]:
+    song = entry["song"]  # 单曲榜使用 song 字段
+    print(f"#{entry['rank']} - {song['title']} by {song['artist']}")
+```
+
+**专辑榜示例：**
+```python
+from mchart import MChart
+
+client = MChart()
 
 # 获取 Billboard 200（专辑榜）
 bb200 = client.get_chart("billboard", "billboard-200")
 
-# 列出所有 Billboard 排行榜
+# 检查排行榜类型
+print(f"排行榜类型: {bb200['metadata']['type']}")  # "album"
+
+# 访问专辑信息
+for entry in bb200["entries"][:5]:
+    album = entry["album"]  # 专辑榜使用 album 字段
+    print(f"#{entry['rank']} - {album['title']} by {album['artist']}")
+    print(f"  已上榜 {entry['weeks_on_chart']} 周")
+```
+
+**列出所有 Billboard 排行榜：**
+```python
 charts = client.list_charts("billboard")
+for chart in charts:
+    print(f"{chart['title']} ({chart['type']})")  # 显示排行榜名称和类型
 ```
 
 ---
@@ -601,5 +689,5 @@ MIT License
 
 ---
 
-**最后更新**: 2026-01-18  
+**最后更新**: 2026-01-21  
 **版本**: 0.2.0

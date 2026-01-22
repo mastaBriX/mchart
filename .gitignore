@@ -57,3 +57,4 @@ uv.lock
 *.tmp
 *.bak
 .cache/
+.ruff_cache/

@@ -5,8 +5,8 @@ Developers can work with dicts directly or use Pydantic models for type-safe ope
 """
 
 from datetime import date
-from typing import Any, Optional
-from pydantic import BaseModel, Field, ConfigDict
+from typing import Any, Literal, Optional
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 
 class Song(BaseModel):
@@ -35,10 +35,39 @@ class Song(BaseModel):
         return self.model_dump()
 
 
-class ChartEntry(BaseModel):
-    """Chart entry/position"""
+class Album(BaseModel):
+    """Album information"""
     
-    song: Song = Field(description="Song information")
+    title: str = Field(description="Album title")
+    artist: str = Field(description="Primary artist")
+    artists: list[str] = Field(default_factory=list, description="List of all artists")
+    image: str = Field(default="", description="Cover image URL")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "title": "Midnights",
+                "artist": "Taylor Swift",
+                "artists": ["Taylor Swift"],
+                "image": "https://example.com/cover.jpg"
+            }
+        }
+    )
+    
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dict format for JSON serialization"""
+        return self.model_dump()
+
+
+class ChartEntry(BaseModel):
+    """Chart entry/position
+    
+    For single charts, use 'song' field.
+    For album charts, use 'album' field.
+    """
+    
+    song: Optional[Song] = Field(default=None, description="Song information (for single charts)")
+    album: Optional[Album] = Field(default=None, description="Album information (for album charts)")
     rank: int = Field(description="Current rank")
     weeks_on_chart: int = Field(default=0, description="Number of weeks on chart")
     last_week: int = Field(default=0, description="Last week's rank, 0 means new entry or no data")
@@ -62,9 +91,19 @@ class ChartEntry(BaseModel):
         }
     )
     
+    @model_validator(mode='after')
+    def validate_song_or_album(self) -> 'ChartEntry':
+        """Validate that either song or album is provided, but not both"""
+        if not self.song and not self.album:
+            raise ValueError("ChartEntry must have either 'song' or 'album' field")
+        if self.song and self.album:
+            raise ValueError("ChartEntry cannot have both 'song' and 'album' fields")
+        return self
+    
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dict format"""
-        return self.model_dump()
+        """Convert to dict format, excluding None values for cleaner JSON"""
+        # Use exclude_none to remove None values from output
+        return self.model_dump(exclude_none=True)
 
 
 class ChartMetadata(BaseModel):
@@ -74,6 +113,7 @@ class ChartMetadata(BaseModel):
     title: str = Field(description="Chart title")
     description: str = Field(default="", description="Chart description")
     url: str = Field(default="", description="Original chart URL")
+    type: Literal["single", "album"] = Field(default="single", description="Whether the chart is for singles or albums")
     
     model_config = ConfigDict(
         json_schema_extra={
@@ -136,6 +176,8 @@ class Chart(BaseModel):
         data = self.model_dump()
         # Ensure date is in string format
         data["published_date"] = self.published_date.isoformat()
+        # Convert entries using their to_dict method to exclude None values
+        data["entries"] = [entry.to_dict() for entry in self.entries]
         return data
     
     @property
@@ -150,16 +192,28 @@ class Chart(BaseModel):
     def find_by_artist(self, artist: str) -> list[ChartEntry]:
         """Find entries by artist name (case-insensitive)"""
         artist_lower = artist.lower()
-        return [
-            entry for entry in self.entries
-            if artist_lower in entry.song.artist.lower()
-            or any(artist_lower in a.lower() for a in entry.song.artists)
-        ]
+        results = []
+        for entry in self.entries:
+            if entry.song:
+                if (artist_lower in entry.song.artist.lower() or
+                    any(artist_lower in a.lower() for a in entry.song.artists)):
+                    results.append(entry)
+            elif entry.album:
+                if (artist_lower in entry.album.artist.lower() or
+                    any(artist_lower in a.lower() for a in entry.album.artists)):
+                    results.append(entry)
+        return results
     
     def find_by_title(self, title: str) -> list[ChartEntry]:
-        """Find entries by song title (case-insensitive, supports partial match)"""
+        """Find entries by title (case-insensitive, supports partial match)
+        
+        Works for both song titles (single charts) and album titles (album charts).
+        """
         title_lower = title.lower()
-        return [
-            entry for entry in self.entries
-            if title_lower in entry.song.title.lower()
-        ]
+        results = []
+        for entry in self.entries:
+            if entry.song and title_lower in entry.song.title.lower():
+                results.append(entry)
+            elif entry.album and title_lower in entry.album.title.lower():
+                results.append(entry)
+        return results
