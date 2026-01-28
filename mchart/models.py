@@ -133,10 +133,11 @@ class ChartMetadata(BaseModel):
 
 class Chart(BaseModel):
     """Complete chart data"""
-    
+
     metadata: ChartMetadata = Field(description="Chart metadata")
     published_date: date = Field(description="Publication date")
     entries: list[ChartEntry] = Field(default_factory=list, description="List of chart entries")
+    chart_type: Literal["single", "album"] = Field(default="single", description="Chart type: 'single' for single/song charts, 'album' for album charts")
     
     model_config = ConfigDict(
         json_schema_extra={
@@ -148,6 +149,7 @@ class Chart(BaseModel):
                     "url": "https://www.billboard.com/charts/hot-100"
                 },
                 "published_date": "2026-01-18",
+                "chart_type": "single",
                 "entries": [
                     {
                         "song": {

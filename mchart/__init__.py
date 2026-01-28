@@ -8,7 +8,7 @@ from .client import MChart
 from .models import Chart, ChartEntry, Song, ChartMetadata
 from .config import BaseConfig, BillboardConfig, SpotifyConfig
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __all__ = [
     "MChart",
     "Chart",

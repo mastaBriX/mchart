@@ -572,7 +572,8 @@ class BillboardProvider(BaseProvider):
             return Chart(
                 metadata=metadata,
                 published_date=published_date,
-                entries=entries
+                entries=entries,
+                chart_type=chart_type
             )
             
         except Exception as e:
