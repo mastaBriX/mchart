@@ -1,6 +1,6 @@
 """Base provider interface definition
 
-All providers must implement this interface to ensure API consistency
+All providers must implement this interface to ensure API consistency.
 """
 
 from abc import ABC, abstractmethod
@@ -9,44 +9,37 @@ from datetime import date
 from enum import Flag, auto
 
 from ..models import Chart, ChartMetadata
-from ..config import BaseConfig
 
 
 class ProviderCapability(Flag):
     """Provider capability flags"""
-    
-    LATEST = auto()  # Supports fetching latest charts
-    HISTORICAL = auto()  # Supports fetching historical charts
-    LIST_CHARTS = auto()  # Supports listing available charts
-    SEARCH = auto()  # Supports search functionality
-    
+
+    LATEST = auto()
+    HISTORICAL = auto()
+    LIST_CHARTS = auto()
+    SEARCH = auto()
+
     ALL = LATEST | HISTORICAL | LIST_CHARTS | SEARCH
 
 
 class BaseProvider(ABC):
-    """
-    Base class for all chart data providers
-    
+    """Base class for all chart data providers
+
     Defines standard interface methods that all providers must implement.
-    Even if certain features are not supported, they should raise NotImplementedError with explanation.
     """
-    
-    def __init__(self, config: Optional[BaseConfig] = None):
-        """
-        Initialize provider
-        
+
+    def __init__(self, config: Optional[dict] = None):
+        """Initialize provider
+
         Args:
-            config: Provider configuration, uses default if None
+            config: Provider configuration dict, uses default if None
         """
-        self.config = config or BaseConfig()
+        self.config = config or {}
         self._setup()
-    
+
     @abstractmethod
     def _setup(self) -> None:
-        """
-        Setup initialization, such as creating HTTP session
-        Subclasses must implement this method
-        """
+        """Setup initialization (e.g., configure Scrapy settings)"""
         pass
     
     @property
