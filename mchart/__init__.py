@@ -5,15 +5,16 @@ Supports fetching music chart data from multiple sources including Billboard, Sp
 """
 
 from .client import MChart
-from .models import Chart, ChartEntry, Song, ChartMetadata
+from .models import Chart, ChartEntry, Song, Album, ChartMetadata
 from .config import BaseConfig, BillboardConfig, SpotifyConfig
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 __all__ = [
     "MChart",
     "Chart",
     "ChartEntry",
     "Song",
+    "Album",
     "ChartMetadata",
     "BaseConfig",
     "BillboardConfig",

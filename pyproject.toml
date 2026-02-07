@@ -1,6 +1,6 @@
 [project]
 name = "mchart"
-version = "0.3.0"
+version = "0.4.0"
 description = "A unified Python library for fetching music chart data from multiple sources"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -8,7 +8,7 @@ license = { text = "MIT" }
 authors = [
     { name = "Yuze Xie", email = "xyzbrianx@gmail.com" }
 ]
-keywords = ["music", "charts", "billboard", "spotify", "api"]
+keywords = ["music", "charts", "billboard", "spotify", "api", "scrapy"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -23,13 +23,10 @@ classifiers = [
 ]
 dependencies = [
     "pydantic>=2.0.0",
-    "requests>=2.28.0",
-    "beautifulsoup4>=4.12.0",
-    "urllib3>=2.0.0",
+    "scrapy>=2.11.0",
 ]
 
 [project.optional-dependencies]
-lxml = ["lxml>=5.0.0"]
 dev = [
     "pytest>=7.0.0",
     "black>=23.0.0",

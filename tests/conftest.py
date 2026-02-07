@@ -94,3 +94,57 @@ def sample_album_chart(sample_album_metadata, sample_album_entry):
         published_date=date(2026, 1, 21),
         entries=[sample_album_entry]
     )
+
+
+@pytest.fixture
+def raw_single_spider_result():
+    """Raw spider output for a single chart (as returned by run_spider)"""
+    return {
+        "provider": "billboard",
+        "chart_name": "hot-100",
+        "chart_title": "Billboard Hot 100",
+        "chart_type": "single",
+        "description": "The week's most popular songs",
+        "url": "https://www.billboard.com/charts/hot-100",
+        "published_date": date(2026, 1, 21),
+        "entries": [
+            {
+                "rank": 1,
+                "title": "Test Song",
+                "artist": "Test Artist",
+                "artists": ["Test Artist"],
+                "image": "https://example.com/image.jpg",
+                "weeks_on_chart": 5,
+                "last_week": 2,
+                "peak_position": 1,
+                "entry_type": "song",
+            }
+        ],
+    }
+
+
+@pytest.fixture
+def raw_album_spider_result():
+    """Raw spider output for an album chart (as returned by run_spider)"""
+    return {
+        "provider": "billboard",
+        "chart_name": "billboard-200",
+        "chart_title": "Billboard 200",
+        "chart_type": "album",
+        "description": "The week's most popular albums",
+        "url": "https://www.billboard.com/charts/billboard-200",
+        "published_date": date(2026, 1, 21),
+        "entries": [
+            {
+                "rank": 1,
+                "title": "Test Album",
+                "artist": "Test Artist",
+                "artists": ["Test Artist"],
+                "image": "https://example.com/image.jpg",
+                "weeks_on_chart": 3,
+                "last_week": 0,
+                "peak_position": 1,
+                "entry_type": "album",
+            }
+        ],
+    }

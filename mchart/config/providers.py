@@ -1,30 +1,27 @@
 """Provider-specific configuration classes"""
 
-from typing import NotRequired, Literal
+from typing import NotRequired
 from .base import BaseConfig
 
 
 class BillboardConfig(BaseConfig):
     """
-    Configuration for Billboard provider
-    
+    Configuration for Billboard provider (Scrapy-based)
+
     Inherits all options from BaseConfig and adds Billboard-specific options.
     All fields are optional.
-    
+
     Examples:
-        >>> config = {"timeout": 60, "parser": "html.parser"}
-        >>> config = BillboardConfig(parser="lxml", include_images=False)
+        >>> config = {"timeout": 60, "include_images": False}
+        >>> config = BillboardConfig(include_images=False, max_chart_entries=10)
     """
-    
-    parser: NotRequired[Literal["lxml", "html.parser", "html5lib"]]
-    """HTML parser, lxml is fastest but requires installation, html.parser is built-in, default: lxml"""
-    
+
     include_images: NotRequired[bool]
     """Whether to fetch song/album cover image URLs, default: True"""
-    
+
     max_chart_entries: NotRequired[int | None]
     """Limit the number of chart entries returned, None means return all, default: None"""
-    
+
     fallback_to_default: NotRequired[bool]
     """Whether to fall back to Hot 100 when requested chart doesn't exist, default: True"""
 
@@ -38,7 +35,6 @@ DEFAULT_BILLBOARD_CONFIG: BillboardConfig = {
     "proxy": None,
     "enable_cache": False,
     "cache_ttl": 3600,
-    "parser": "lxml",
     "include_images": True,
     "max_chart_entries": None,
     "fallback_to_default": True,
